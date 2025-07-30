@@ -22,6 +22,6 @@ RUN guardrails hub install hub://guardrails/detect_jailbreak
 COPY models/guardrails/jail_break/main_jailbreak.py main_jailbreak.py
 
 
-##FROM base as guard-rails-ai-redundent
-##RUN guardrails hub install hub://guardrails/sensitive_topics
-
+FROM base as guard-rails-ai-redundent
+RUN guardrails hub install hub://guardrails/sensitive_topics
+COPY models/guardrails/jail_break/main_jailbreak.py main_jailbreak.py
