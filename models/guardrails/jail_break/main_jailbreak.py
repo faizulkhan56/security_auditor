@@ -15,7 +15,7 @@ class TextInput(BaseModel):
 
 
 guard = Guard().use(
-    DetectJailbreak, threshold=0.5,
+    DetectJailbreak, threshold=0.8,
     validation_method="full",
     on_fail="noop"
 )

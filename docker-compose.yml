@@ -1,15 +1,37 @@
 version: "3.9"
 
 services:
-  toxic-detection:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: guard-rails-ai-toxic-detection
-    container_name: toxic-detector
-    ports:
-      - "9001:8000"
-    command: ["uvicorn", "main_toxic:app", "--host", "0.0.0.0", "--port", "8000"]
+#  toxic-detection:
+#    build:
+#      context: .
+#      dockerfile: Dockerfile
+#      target: guard-rails-ai-toxic-detection
+#    container_name: toxic-detector
+#    ports:
+#      - "9001:8001"
+#    command: [ "uvicorn", "main_toxic:app", "--host", "0.0.0.0", "--port", "8001" ]
+#
+#
+#  jailbreak-detection:
+#    build:
+#      context: .
+#      dockerfile: Dockerfile
+#      target: guard-rails-ai-jail-break
+#    container_name: jailbreak-detector
+#    ports:
+#      - "9002:8002"
+#    command: [ "uvicorn", "main_jailbreak:app", "--host", "0.0.0.0", "--port", "8002" ]
+#
+#  redundant-topic-detection:
+#    build:
+#      context: .
+#      dockerfile: Dockerfile
+#      target: guard-rails-ai-redundent
+#    container_name: sensitive-topic-detector
+#    ports:
+#      - "9003:8003"
+#    command: [ "uvicorn", "main_redundent:app", "--host", "0.0.0.0", "--port", "8003" ]
+
 #  pii-detection:
 #    build:
 #      context: .
@@ -17,24 +39,56 @@ services:
 #      target: guard-rails-ai-pii
 #    container_name: pii-detector
 #    ports:
-#      - "9002:8000"
+#      - "9004:8004"
+#    command: [ "uvicorn", "main_pii:app", "--host", "0.0.0.0", "--port", "8004" ]
 
-  jailbreak-detection:
+  ollama-phi3:
     build:
       context: .
-      dockerfile: Dockerfile
-      target: guard-rails-ai-jail-break
-    container_name: jailbreak-detector
+      target: phi3
+    container_name: ollama_phi3
     ports:
-      - "9003:8003"
-    command: ["uvicorn", "main_jailbreak:app", "--host", "0.0.0.0", "--port", "8003"]
+      - "11001:11434"
+    command: ["ollama", "serve"]
+    volumes:
+      - ollama_models:/root/.ollama/models
+    restart: unless-stopped
+#
+#  ollama-mistral:
+#    build:
+#      context: .
+#      target: mistral
+#    container_name: ollama_mistral
+#    ports:
+#      - "11002:11434"
+#    command: ["ollama", "serve"]
+#    volumes:
+#      - ollama_models:/root/.ollama/models
+#    restart: unless-stopped
+#
+#  ollama-gemma:
+#    build:
+#      context: .
+#      target: gemma
+#    container_name: ollama_gemma
+#    ports:
+#      - "11003:11434"
+#    command: ["ollama", "serve"]
+#    volumes:
+#      - ollama_models:/root/.ollama/models
+#    restart: unless-stopped
+#
+#  ollama-llama3:
+#    build:
+#      context: .
+#      target: llama3
+#    container_name: ollama_llama3
+#    ports:
+#      - "11004:11434"
+#    command: ["ollama", "serve"]
+#    volumes:
+#      - ollama_models:/root/.ollama/models
+#    restart: unless-stopped
 
-  redundant-topic-detection:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: guard-rails-ai-redundent
-    container_name: sensitive-topic-detector
-    ports:
-      - "9004:8004"
-    command: ["uvicorn", "main_jailbreak:app", "--host", "0.0.0.0", "--port", "8004"]
+volumes:
+  ollama_models:

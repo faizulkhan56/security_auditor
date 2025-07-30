@@ -15,7 +15,7 @@ app = FastAPI(title="Request Manager", description="It will get the requests fro
 
 SERVICE_URLS = [
     "http://localhost:9001/validate",
-    # "http://localhost:8003/data",
+    "http://localhost:9002/validate",
     "http://localhost:9003/validate",
     "http://localhost:9004/validate",
 ]
