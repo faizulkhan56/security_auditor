@@ -1,0 +1,7 @@
+streamlit
+pandas
+streamlit-lottie
+# garak
+promptfoo
+requests
+matplotlib
