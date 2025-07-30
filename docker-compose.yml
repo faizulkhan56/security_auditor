@@ -1,0 +1,39 @@
+version: "3.9"
+
+services:
+  toxic-detection:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: guard-rails-ai-toxic-detection
+    container_name: toxic-detector
+    ports:
+      - "9001:8000"
+    command: ["uvicorn", "main_toxic:app", "--host", "0.0.0.0", "--port", "8000"]
+#  pii-detection:
+#    build:
+#      context: .
+#      dockerfile: Dockerfile
+#      target: guard-rails-ai-pii
+#    container_name: pii-detector
+#    ports:
+#      - "9002:8000"
+
+  jailbreak-detection:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: guard-rails-ai-jail-break
+    container_name: jailbreak-detector
+    ports:
+      - "9003:8003"
+    command: ["uvicorn", "main_jailbreak:app", "--host", "0.0.0.0", "--port", "8003"]
+
+#  redundant-topic-detection:
+#    build:
+#      context: .
+#      dockerfile: Dockerfile
+#      target: guard-rails-ai-redundent
+#    container_name: sensitive-topic-detector
+#    ports:
+#      - "9004:8000"
