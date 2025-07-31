@@ -1,46 +1,55 @@
-from datetime import datetime
-from aws import AwsS3
-from pydantic import BaseModel, Field
-import pandas as pd
 import logging
+import os
+from pathlib import Path
 
-
-# class LogFilterAttributes(BaseModel):
-#     model_type: str | None = None
-#     model_name: str | None = None
-#     execution_date = Field(default_factory=lambda: datetime.now().strftime('%Y%m%d'))
-#
-#
-#     @property
-#     def folder_prefix(self) -> str:
-#         return f"{self.model_type}/{self.model_name}/{self.execution_date}/"
+import pandas as pd
+from aws import AwsS3
 
 
 class LogFilter:
-    def __init__(self, aws_client: AwsS3) -> None:
+    def __init__(self, aws_client: AwsS3, cmd: str) -> None:
         self.aws_client = aws_client
+        self.cmd = cmd.strip()
+        try:
+            prefix = cmd.split('--report_prefix')[-1].strip().replace('.', '/')
+            self.folder_prefix = prefix if prefix.endswith('/') else prefix + '/'
+            self.report_name = cmd.split('--report_prefix')[-1].strip()
+        except IndexError:
+            raise ValueError("Missing '--report_prefix' in cmd")
 
-    @staticmethod
-    def read_log_data(file_name: str) -> pd.DataFrame:
-        df = pd.read_json(file_name, lines=True)
-        return df
+    def read_log_data(self, file_name: str) -> pd.DataFrame:
+        try:
+            return pd.read_json(file_name, lines=True)
+        except Exception as e:
+            logging.error(f"Failed to read JSON log file: {file_name}, error: {e}")
+            raise
 
-    @staticmethod
-    def filtered_output_data(df: pd.DataFrame) -> pd.DataFrame:
-        if df[(df.entry_type == 'digest')].shape[0] > 0:
-            df_digest_meta = df[(df.entry_type == 'digest')]['meta']
-            df_digest_eval = df[(df.entry_type == 'digest')]['eval']
-            print(df_digest_meta, df_digest_eval,)
+    def filtered_output_data(self, df: pd.DataFrame, target_dir: str = 'filtered_logs/') -> pd.DataFrame:
+        Path(target_dir).mkdir(parents=True, exist_ok=True)
+        if df['entry_type'].eq('digest').any():
+            filtered_df = df.query("entry_type in ['digest', 'attempt']")
+            filtered_df = filtered_df[filtered_df['detector_results'].map(bool)]
+            output_path = f"{target_dir}{self.report_name}.report.jsonl"
+            filtered_df.to_json(output_path, orient='records', lines=True)
+            logging.info(f"Filtered report saved to: {output_path}")
+            self.aws_client.upload_file(local_files=(output_path,), prefix=self.folder_prefix)
         else:
-            logging.info(f"No digest")
+            logging.info("No digest entries found.")
+
         return df
 
 
 if __name__ == '__main__':
-    import os
-    aws_access_key = os.environ.get('AWS_S3_ACCESS_KEY')
-    aws_secret_key = os.environ.get('AWS_S3_SECRET_KEY')
+    logging.basicConfig(level=logging.INFO)
+
+    aws_access_key = os.getenv('AWS_S3_ACCESS_KEY')
+    aws_secret_key = os.getenv('AWS_S3_SECRET_KEY')
+
     aws_client = AwsS3(aws_access_key, aws_secret_key)
-    log_filter = LogFilter(aws_client)
-    data = log_filter.read_log_data('/Users/panda/Desktop/Hackathon/security_auditor/logs/ansiescape.AnsiEscaped.report.jsonl')
+    cmd = '--model_type ollama --model_name phi3 --probes dan.AntiDAN --report_prefix ollama.phi3.dan.AntiDAN.20250801'
+
+    log_filter = LogFilter(aws_client, cmd)
+
+    data_path = Path('logs/ansiescape.AnsiEscaped.report.jsonl')
+    data = log_filter.read_log_data(data_path)
     log_filter.filtered_output_data(data)
