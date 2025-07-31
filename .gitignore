@@ -4,5 +4,8 @@ __pycache__/
 .env
 assets/logo.png
 logs/*.jsonl
+logs/
+filtered_logs/*.jsonl
+filtered_logs
 .DS_Store
 .idea
