@@ -3,4 +3,5 @@ __pycache__/
 .venv/
 .env
 assets/logo.png
-*.jsonl
+logs/*.jsonl
+.DS_Store
