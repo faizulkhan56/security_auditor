@@ -5,3 +5,4 @@ __pycache__/
 assets/logo.png
 logs/*.jsonl
 .DS_Store
+.idea
