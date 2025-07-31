@@ -9,3 +9,5 @@ filtered_logs/*.jsonl
 filtered_logs
 .DS_Store
 .idea
+research/*
+.empty
