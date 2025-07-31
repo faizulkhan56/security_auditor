@@ -11,3 +11,5 @@ filtered_logs
 .idea
 research/*
 .empty
+.ipynb*
+*.ipynb
