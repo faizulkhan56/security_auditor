@@ -1,9 +1,10 @@
 from garak.cli import main
 import os
-from aws import AwsS3
-from open_api_communication import OpenApiCommunication
-from report_generate import ReportGenerate
-from filter import LogFilter
+
+from services.aws import AwsS3
+from services.open_api_communication import OpenApiCommunication
+from services.report_generate import ReportGenerate
+from services.filter import LogFilter
 from pathlib import Path
 import pandas as pd
 from dotenv import load_dotenv
@@ -29,6 +30,3 @@ def run_garak_live(cmd):
     filtered_df = log_filter.filtered_output_data(data)
     response_data = report_generator.generate_report_from_openai(df=filtered_df)
     print(response_data)
-
-
-run_garak_live(cmd=cmd)
