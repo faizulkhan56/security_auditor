@@ -7,3 +7,4 @@ requests
 matplotlib
 python-dotenv
 streamlit-authenticator
+boto3
