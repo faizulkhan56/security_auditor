@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 
 import pandas as pd
-from aws import AwsS3
+from services.aws import AwsS3
 
 
 class LogFilter:
