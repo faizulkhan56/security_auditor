@@ -23,21 +23,6 @@ def run_garak_background(cmd_args, model_name):
             st.session_state.scan_status = "Running scan..."
             st.session_state.garak_logs = ["🚀 Starting Garak scan...\n"]
 
-            # Get S3 client for upload
-            try:
-                s3_client = get_s3_client()
-                s3_bucket = s3_client.bucket_name
-                aws_access_key = s3_client.aws_access_key_id
-                aws_secret_key = s3_client.aws_secret_access_key
-                print(f"DEBUG: S3 client initialized, bucket: {s3_bucket}")
-            except Exception as e:
-                print(f"DEBUG: S3 error: {str(e)}")
-                st.session_state.garak_logs.append(f"⚠️ S3 upload disabled: {str(e)}\n")
-                s3_bucket = None
-                aws_access_key = None
-                aws_secret_key = None
-
-            # Track total log content
             all_logs = []
 
             def log_updater(log_content):
@@ -72,7 +57,7 @@ def run_garak_background(cmd_args, model_name):
 
             # Run garak using subprocess approach
             log_output, return_code = run_garak_live(
-                cmd_args,
+                ' '.join(cmd_args),
             )
             print(f"DEBUG: run_garak_live starting")
             logging.info('Run garak live')
@@ -97,13 +82,13 @@ def run_garak_background(cmd_args, model_name):
             print("DEBUG: Setting garak_scanning to False")
             st.session_state.garak_scanning = False
 
-    # Start background thread
-    print("DEBUG: Starting background thread")
-    thread = threading.Thread(target=garak_worker, daemon=True)
-    thread.start()
-
+    # # Start background thread
+    # print("DEBUG: Starting background thread")
+    # thread = threading.Thread(target=garak_worker, daemon=True)
+    # thread.start()
+    garak_worker()
     # Store thread reference
-    st.session_state.garak_thread = thread
+    # st.session_state.garak_thread = thread
 
 def build_garak_command(form_data):
     """Build the garak command arguments"""
