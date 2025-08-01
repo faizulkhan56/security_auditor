@@ -1,0 +1,23 @@
+credentials:
+  usernames:
+    admin:
+      first_name: Admin
+      last_name: User
+#      email: admin@demo.com
+      password: $2b$12$axFrtnjgm2F5P9uZ6Uan7u9AXybLMVcpX.1hXX0McgySIOVC/ffyG
+      failed_login_attempts: 2
+#      logged_in: false
+    user:
+      first_name: Regular
+      last_name: User
+#      email: user@demo.com
+      password: $2b$12$9i.FfHj3J/RudaeDA71GzOuXxZR0Usbohdx29l3CkraUzYjBMAjAK
+      failed_login_attempts: 2
+#      logged_in: false
+cookie:
+  name: llm_auditor_cookie
+  key: key_123
+  expiry_days: 1
+#pre-authorized:
+#  emails:
+#    - admin@demo.com
