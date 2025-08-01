@@ -1,28 +1,42 @@
-import openai
 import os
+import openai
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 class OpenApiCommunication:
     def __init__(self, api_key: str = None, model: str = "gpt-4"):
         self.api_key = api_key or os.getenv("OPENAI_API_KEY")
         if not self.api_key:
-            raise ValueError("OpenAI API key must be provided via constructor or OPENAI_API_KEY environment variable.")
-        self.model = model
-        openai.api_key = self.api_key
+            raise EnvironmentError(
+                "Missing OpenAI API key. Set `OPENAI_API_KEY` in .env or pass as constructor argument.")
 
-    def ask_for_report(self, prompt: str) -> str:
+        openai.api_key = self.api_key
+        self.model = model
+
+    def ask_for_report(self, prompt: str, system_instruction: str = None) -> str:
         try:
+            messages = [
+                {
+                    "role": "system",
+                    "content": system_instruction or "You are a helpful assistant generating structured reports."
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ]
+
             response = openai.ChatCompletion.create(
                 model=self.model,
-                messages=[
-                    {"role": "system", "content": "You are a helpful assistant generating structured reports."},
-                    {"role": "user", "content": prompt}
-                ],
+                messages=messages,
                 temperature=0.7
             )
-            return response.choices[0].message['content'].strip()
+            return response.choices[0].message["content"].strip()
+
         except Exception as e:
-            return f"❌ Error occurred: {str(e)}"
+            return f"❌ Error: {e}"
 
 
 # Example usage
