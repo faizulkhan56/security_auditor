@@ -33,6 +33,7 @@ class LogFilter:
             filtered_df.to_json(output_path, orient='records', lines=True)
             logging.info(f"Filtered report saved to: {output_path}")
             self.aws_client.upload_file(local_files=(output_path,), prefix=self.folder_prefix)
+            return filtered_df
         else:
             logging.info("No digest entries found.")
 
