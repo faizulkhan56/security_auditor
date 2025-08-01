@@ -3,3 +3,13 @@ __pycache__/
 .venv/
 .env
 assets/logo.png
+logs/*.jsonl
+logs/
+filtered_logs/*.jsonl
+filtered_logs
+.DS_Store
+.idea
+research/*
+.empty
+.ipynb*
+*.ipynb

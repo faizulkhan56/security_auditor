@@ -1,7 +1,9 @@
 streamlit
 pandas
 streamlit-lottie
-# garak
+garak
 promptfoo
 requests
 matplotlib
+python-dotenv
+streamlit-authenticator

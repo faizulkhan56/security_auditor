@@ -1,40 +1,28 @@
+from garak.cli import main
 import subprocess
 import threading
+import os
+from aws import AwsS3
+from filter import LogFilter
+from pathlib import Path
 
-def run_garak_live(cmd, on_update):
-    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-    log_lines = []
-    def reader():
-        for line in process.stdout:
-            log_lines.append(line)
-            on_update(''.join(log_lines))
-        process.stdout.close()
-    t = threading.Thread(target=reader, daemon=True)
-    t.start()
-    process.wait()
-    return ''.join(log_lines), process.returncode
+
+aws_access_key = os.getenv('AWS_S3_ACCESS_KEY')
+aws_secret_key = os.getenv('AWS_S3_SECRET_KEY')
+
+aws_client = AwsS3(aws_access_key, aws_secret_key)
+cmd = '--model_type ollama --model_name phi3 --probes xss.MdExfil20230929 --report_prefix ollama.phi3.xss.MdExfil20230929.20250801'
 
 
 
-# import subprocess
-# import threading
-#
-# def run_garak_live(cmd, on_update):
-#     try:
-#         import garak
-#     except ImportError:
-#         return "Error: garak module not installed.", 1
-#
-#     process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-#     log_lines = []
-#
-#     def reader():
-#         for line in process.stdout:
-#             log_lines.append(line)
-#             on_update(''.join(log_lines))
-#         process.stdout.close()
-#
-#     t = threading.Thread(target=reader, daemon=True)
-#     t.start()
-#     process.wait()
-#     return ''.join(log_lines), process.returncode
+
+def run_garak_live(cmd):
+    main(cmd.split(' '))
+    log_filter = LogFilter(aws_client, cmd)
+    log_path = '/Users/panda/.local/share/garak/garak_runs/'
+    data_path = Path(f'{log_path}/ollama.phi3.xss.MdExfil20230929.20250801.report.jsonl')
+    data = log_filter.read_log_data(data_path)
+    log_filter.filtered_output_data(data)
+
+
+run_garak_live(cmd=cmd)
