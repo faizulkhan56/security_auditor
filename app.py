@@ -3,6 +3,8 @@ import json
 from streamlit_lottie import st_lottie
 from modules import home, scan_llm, dashboard, logs, prompts, settings
 from auth import authenticator
+import warnings
+warnings.filterwarnings("ignore")
 import yaml
 
 st.set_page_config(
