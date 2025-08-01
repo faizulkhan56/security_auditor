@@ -18,6 +18,12 @@ class LogFilter:
             raise ValueError("Missing '--report_prefix' in cmd")
 
     def read_log_data(self, file_name: str) -> pd.DataFrame:
+        if not os .path.exists(file_name):
+            logging.error(f"Log file does not exist: {file_name}")
+            raise FileNotFoundError(f"Log file not found: {file_name}")
+        if os.path.getsize(file_name) == 0:
+            logging.error(f"Log file is empty: {file_name}")
+            raise ValueError(f"Log file is empty: {file_name}")
         try:
             return pd.read_json(file_name, lines=True)
         except Exception as e:
