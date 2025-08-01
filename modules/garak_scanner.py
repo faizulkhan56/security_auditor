@@ -4,10 +4,8 @@ import streamlit as st
 from modules.constants import probe_dict
 import datetime
 import os
-import threading
 import time
 from services.garak_runner import run_garak_live
-from services.s3_handler import get_s3_client
 import glob
 
 
