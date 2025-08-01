@@ -1,6 +1,6 @@
 import pandas as pd
 from pandas import DataFrame
-from open_api_communication import OpenApiCommunication
+from services.open_api_communication import OpenApiCommunication
 import json
 
 default_format = {
