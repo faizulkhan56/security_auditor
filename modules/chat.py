@@ -40,7 +40,7 @@ def show():
     st.markdown("Conversational Chat Interface")
 
     # Configuration row
-    col1, col2 = st.columns([3, 2])
+    col1, col2, col3 = st.columns([3, 2, 1])
 
     with col1:
         endpoint = st.text_input(
@@ -56,6 +56,10 @@ def show():
             placeholder="Enter API token if required",
             key="chat_token"
         )
+
+    model_names = ["qwen:1.8b", "phi3"]
+    with col3:
+        st.selectbox("Choose an option:", model_names, key="model_name")
 
     # Initialize chat history
     if "chat_history" not in st.session_state:
@@ -87,7 +91,7 @@ def show():
 
     # Chat input at bottom
     user_input = st.chat_input("Type your message here...")
-
+    model_name = st.session_state["model_name"]
     # Handle message sending
     if user_input and endpoint:
         # Add user message
@@ -96,7 +100,8 @@ def show():
         # Generate response
         with st.spinner("Processing..."):
             try:
-                reply = run_custom_chat(endpoint, user_input, api_token=api_token if api_token else None)
+                reply = run_custom_chat(endpoint, user_input, api_token=api_token if api_token else None,
+                                        model_name=model_name)
                 st.session_state.chat_history.append(("AI", reply))
             except Exception as e:
                 error_msg = f"Error: {str(e)}"
