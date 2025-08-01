@@ -2,8 +2,9 @@ import requests
 import json
 
 
-def run_custom_chat(endpoint, user_input, api_token=None):
+def run_custom_chat(endpoint, user_input, api_token=None, model_name='qwen:1.8b'):
     payload = {
+        "model": model_name,
         "messages": [{"role": "user", "content": user_input}]
     }
     try:
