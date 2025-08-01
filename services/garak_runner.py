@@ -1,6 +1,4 @@
 from garak.cli import main
-import subprocess
-import threading
 import os
 from aws import AwsS3
 from filter import LogFilter
@@ -19,8 +17,8 @@ cmd = '--model_type ollama --model_name phi3 --probes xss.MdExfil20230929 --repo
 def run_garak_live(cmd):
     main(cmd.split(' '))
     log_filter = LogFilter(aws_client, cmd)
-    log_path = '/Users/panda/.local/share/garak/garak_runs/'
-    data_path = Path(f'{log_path}/ollama.phi3.xss.MdExfil20230929.20250801.report.jsonl')
+    log_path = f'{os.getenv('LOG_PATH')}.local/share/garak/garak_runs/'
+    data_path = Path(f'{log_path}/{cmd.split('--report_prefix')[-1].strip()}.report.jsonl')
     data = log_filter.read_log_data(data_path)
     log_filter.filtered_output_data(data)
 
