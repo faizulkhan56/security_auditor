@@ -1,0 +1,16 @@
+{
+  "s3": {
+    "bucket": "llm-auditor-reports",
+    "access_key": "3T4Nv2BrX5_rMEx",
+    "secret_key": "",
+    "region": "us-east-1"
+  },
+  "output": {
+    "reports_folder": "./reports",
+    "logs_folder": "./logs"
+  },
+  "garak": {
+    "default_generations": 5,
+    "default_parallel": 1
+  }
+}

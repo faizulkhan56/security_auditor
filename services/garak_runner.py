@@ -65,3 +65,4 @@ def clean_up_reports(report_file):
 if __name__ == "__main__":
     response_data = run_garak_live(cmd)
     save_report(response_data)
+
