@@ -83,7 +83,7 @@ def run_garak_live_with_updates(cmd):
         # Wait for process to complete
         return_code = process.wait()
         print(f"DEBUG: Garak process completed with return code: {return_code}")
-
+        run_garak_live(cmd, on_update=None)
         return log_output, return_code, None
 
     except Exception as e:
@@ -119,6 +119,8 @@ def run_garak_background(cmd_args, model_name):
                 log_queue.put_nowait(log_output + final_message)
             except queue.Full:
                 pass
+
+
 
         except Exception as e:
             print(f"DEBUG: Exception in garak_worker: {str(e)}")

@@ -106,37 +106,13 @@ def run_garak_live(cmd, on_update=None):
             pass
 
         # Process the results
-        try:
-            log_filter = LogFilter(aws_client, cmd)
-            log_path = f"{os.getenv('LOG_PATH', '~')}.local/share/garak/garak_runs/"
-            print(f"DEBUG: Log path: {log_path}")
-
-            # Extract report prefix from command
-            cmd_parts = cmd.split()
-            report_prefix = None
-            for i, part in enumerate(cmd_parts):
-                if part == '--report_prefix' and i + 1 < len(cmd_parts):
-                    report_prefix = cmd_parts[i + 1]
-                    break
-
-            if report_prefix:
-                # Fix the path to use the correct user directory
-                user_home = os.path.expanduser("~")
-                data_path = Path(f"{user_home}/.local/share/garak/garak_runs/{report_prefix}.report.jsonl")
-                print(f"DEBUG: Looking for report file: {data_path}")
-
-                if data_path.exists():
-                    data = log_filter.read_log_data(data_path)
-                    filtered_df = log_filter.filtered_output_data(data)
-                    response_data = report_generator.generate_report_from_openai(df=filtered_df)
-                    return log_output, return_code, response_data
-                else:
-                    print(f"DEBUG: Report file not found: {data_path}")
-            else:
-                print("DEBUG: No report prefix found in command")
-
-        except Exception as e:
-            print(f"DEBUG: Error processing results: {e}")
+        log_filter = LogFilter(aws_client, cmd)
+        log_path = f"{os.getenv('LOG_PATH')}.local/share/garak/garak_runs/"
+        data_path = Path(f"{log_path}/{cmd.split('--report_prefix')[-1].strip()}.report.jsonl")
+        data = log_filter.read_log_data(data_path)
+        filtered_df = log_filter.filtered_output_data(data)
+        response_data = report_generator.generate_report_from_openai(df=filtered_df)
+        return response_data
 
         return log_output, return_code, None
 
