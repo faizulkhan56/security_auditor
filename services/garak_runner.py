@@ -109,6 +109,7 @@ def run_garak_live(cmd, on_update=None):
         try:
             log_filter = LogFilter(aws_client, cmd)
             log_path = f"{os.getenv('LOG_PATH', '~')}.local/share/garak/garak_runs/"
+            print(f"DEBUG: Log path: {log_path}")
 
             # Extract report prefix from command
             cmd_parts = cmd.split()
