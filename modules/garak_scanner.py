@@ -129,8 +129,11 @@ def run_garak_background(cmd_args, model_name):
                 pass
         finally:
             print("DEBUG: Setting garak_scanning to False")
-            # Use a simple flag instead of session state
-            st.session_state.garak_scanning = False
+            # Put completion status in queue instead of direct session state access
+            try:
+                log_queue.put_nowait("__SCAN_COMPLETE__")
+            except queue.Full:
+                pass
 
     # Start background thread
     print("DEBUG: Starting background thread")
@@ -379,8 +382,12 @@ def show():
     if st.session_state.get('garak_scanning', False):
         latest_logs = get_latest_logs()
         if latest_logs:
-            st.session_state.garak_logs = [latest_logs]
-            st.session_state.last_log_update = datetime.datetime.now().strftime("%H:%M:%S")
+            # Check if this is a completion signal
+            if latest_logs == "__SCAN_COMPLETE__":
+                st.session_state.garak_scanning = False
+            else:
+                st.session_state.garak_logs = [latest_logs]
+                st.session_state.last_log_update = datetime.datetime.now().strftime("%H:%M:%S")
 
     # Show logs
     if st.session_state.garak_scanning or st.session_state.garak_logs:
@@ -434,9 +441,9 @@ def show():
         # Show simple completion status
         if not st.session_state.garak_scanning and st.session_state.garak_logs:
             if "garak run complete" in st.session_state.garak_logs[0].lower():
-                st.success("Scan completed!")
+                st.success("✅ Scan completed successfully!")
             elif "cancelled" in st.session_state.scan_status.lower():
-                st.warning("Scan was cancelled.")
+                st.warning("⚠️ Scan was cancelled.")
 
     # Update session state
     st.session_state.garak_form_data = form_data
