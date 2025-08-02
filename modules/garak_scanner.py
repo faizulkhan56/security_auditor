@@ -1,5 +1,4 @@
 import logging
-
 import streamlit as st
 from modules.constants import probe_dict
 import datetime
@@ -7,6 +6,90 @@ import os
 import time
 from services.garak_runner import run_garak_live
 import glob
+import threading
+import subprocess
+from streamlit.runtime.scriptrunner import add_script_run_ctx
+import queue
+
+# Global queue for log updates
+log_queue = queue.Queue()
+
+
+def get_latest_logs():
+    """Get the latest logs from the queue"""
+    latest_logs = ""
+    try:
+        while not log_queue.empty():
+            latest_logs = log_queue.get_nowait()
+    except queue.Empty:
+        pass
+    return latest_logs
+
+
+def run_garak_live_with_updates(cmd):
+    """
+    Run garak with real-time output capture and Streamlit updates
+    """
+    print(f"DEBUG: Starting garak with real-time updates: {cmd}")
+
+    # Build the full command
+    full_cmd = ["garak"] + cmd.split()
+    print(f"DEBUG: Full command: {' '.join(full_cmd)}")
+
+    # Set environment for proper output handling
+    env = os.environ.copy()
+    env['PYTHONIOENCODING'] = 'utf-8'
+    env['PYTHONUNBUFFERED'] = '1'
+    env['FORCE_COLOR'] = '0'  # Disable color output for better parsing
+
+    log_output = ""
+
+    try:
+        # Start the process
+        process = subprocess.Popen(
+            full_cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=0,  # Unbuffered
+            universal_newlines=True,
+            env=env,
+            encoding='utf-8',
+            errors='replace'
+        )
+
+        # Read output in real-time
+        while True:
+            line = process.stdout.readline()
+            if not line and process.poll() is not None:
+                break
+
+            if line:
+                # Clean the line
+                clean_line = line.encode('ascii', errors='ignore').decode('ascii')
+                log_output += clean_line
+
+                # Put log update in queue for real-time display
+                try:
+                    log_queue.put_nowait(log_output)
+                except queue.Full:
+                    pass  # Queue is full, skip this update
+
+                # Note: Progress updates removed to avoid ScriptRunContext warnings
+                # Progress will be updated by the main thread based on log content
+
+                print(f"DEBUG: Garak output: {clean_line.strip()}")
+
+        # Wait for process to complete
+        return_code = process.wait()
+        print(f"DEBUG: Garak process completed with return code: {return_code}")
+
+        return log_output, return_code, None
+
+    except Exception as e:
+        print(f"DEBUG: Error starting garak process: {e}")
+        error_msg = f"Error starting garak: {str(e)}"
+        return error_msg, -1, None
 
 
 def run_garak_background(cmd_args, model_name):
@@ -14,79 +97,49 @@ def run_garak_background(cmd_args, model_name):
 
     def garak_worker():
         try:
-            print(f"DEBUG: Starting garak worker with command: {cmd_args}")
+            print(f"DEBUG: Starting garak worker with command: {' '.join(cmd_args)}")
 
-            # Update initial status
-            st.session_state.scan_progress = 0.1
-            st.session_state.scan_status = "Running scan..."
-            st.session_state.garak_logs = ["🚀 Starting Garak scan...\n"]
-
-            all_logs = []
-
-            def log_updater(log_content):
-                """Update logs in real-time"""
-                print(f"DEBUG: Log update received, length: {len(log_content)}")
-
-                # Store in session state as list for better performance
-                st.session_state.garak_logs = [log_content]
-
-                # Update progress based on log content
-                progress = 0.2  # Default progress
-                status = "Running scan..."
-
-                if "scan completed successfully" in log_content.lower():
-                    progress = 0.9
-                    status = "Scan completed"
-                elif "uploading results" in log_content.lower():
-                    progress = 0.8
-                    status = "Uploading to S3..."
-                elif "all files uploaded" in log_content.lower():
-                    progress = 1.0
-                    status = "Completed"
-                elif "error" in log_content.lower() or "failed" in log_content.lower():
-                    status = "Error detected"
-                elif len(log_content) > 100:  # Some progress if we have substantial output
-                    progress = min(0.7, 0.2 + len(log_content) / 10000)  # Progressive increase
-
-                st.session_state.scan_progress = progress
-                st.session_state.scan_status = status
-
-            print(f"DEBUG: About to call run_garak_live")
-
-            # Run garak using subprocess approach
-            log_output, return_code = run_garak_live(
-                ' '.join(cmd_args),
+            # Run garak using subprocess approach with real-time updates
+            log_output, return_code, response_data = run_garak_live_with_updates(
+                ' '.join(cmd_args)
             )
-            print(f"DEBUG: run_garak_live starting")
-            logging.info('Run garak live')
+
             print(f"DEBUG: run_garak_live completed")
 
-            # Final status update
+            # Final status update - use queue instead of direct session state access
             if return_code == 0:
-                st.session_state.scan_progress = 1.0
-                st.session_state.scan_status = "Completed"
+                final_status = "Completed"
+                final_message = f"\nScan completed successfully!\n"
             else:
-                st.session_state.scan_status = "Failed"
-                if st.session_state.garak_logs:
-                    current_logs = st.session_state.garak_logs[0] if st.session_state.garak_logs else ""
-                    st.session_state.garak_logs = [current_logs + f"\n❌ Scan failed with exit code: {return_code}\n"]
+                final_status = "Failed"
+                final_message = f"\nScan failed with exit code: {return_code}\n"
+
+            # Put final status in queue for main thread to process
+            try:
+                log_queue.put_nowait(log_output + final_message)
+            except queue.Full:
+                pass
 
         except Exception as e:
             print(f"DEBUG: Exception in garak_worker: {str(e)}")
-            st.session_state.scan_status = "Failed"
-            current_logs = st.session_state.garak_logs[0] if st.session_state.garak_logs else ""
-            st.session_state.garak_logs = [current_logs + f"\n❌ Scan failed: {str(e)}\n"]
+            error_message = f"\nScan failed: {str(e)}\n"
+            try:
+                log_queue.put_nowait(error_message)
+            except queue.Full:
+                pass
         finally:
             print("DEBUG: Setting garak_scanning to False")
+            # Use a simple flag instead of session state
             st.session_state.garak_scanning = False
 
-    # # Start background thread
-    # print("DEBUG: Starting background thread")
-    # thread = threading.Thread(target=garak_worker, daemon=True)
-    # thread.start()
-    garak_worker()
+    # Start background thread
+    print("DEBUG: Starting background thread")
+    thread = threading.Thread(target=garak_worker, daemon=True)
+    thread.start()
+
     # Store thread reference
-    # st.session_state.garak_thread = thread
+    st.session_state.garak_thread = thread
+
 
 def build_garak_command(form_data):
     """Build the garak command arguments"""
@@ -114,10 +167,16 @@ def build_garak_command(form_data):
 
     # Add report prefix with timestamp
     timestamp = datetime.datetime.now().strftime("%Y%m%d")
-    probe_names = ".".join([p.split(".")[-1] for p in form_data["probe_secondary"]])
-    report_prefix = f"ollama.{form_data['model_name']}.{probe_names}.{timestamp}"
+    if form_data["probe_secondary"]:
+        probe_names = ".".join([p.split(".")[-1] for p in form_data["probe_secondary"]])
+        report_prefix = f"ollama.{form_data['model_name']}.{probe_names}.{timestamp}"
+    else:
+        report_prefix = f"ollama.{form_data['model_name']}.scan.{timestamp}"
     cmd_parts += ["--report_prefix", report_prefix]
+
+    print(f"DEBUG: Built command: {cmd_parts}")
     return cmd_parts
+
 
 def show():
     # Clean styling
@@ -158,12 +217,19 @@ def show():
         st.session_state.scan_status = "Ready"
     if "garak_logs" not in st.session_state:
         st.session_state.garak_logs = []
+    if "last_log_update" not in st.session_state:
+        st.session_state.last_log_update = None
 
     form_data = st.session_state.garak_form_data
 
     # Show persistent scan status at top if running
     if st.session_state.garak_scanning:
-        st.info(f"🔄 Scan in progress: {st.session_state.scan_status} - {st.session_state.scan_progress * 100:.0f}%")
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            st.info(f"🔄 Scan in progress: {st.session_state.scan_status} - {st.session_state.scan_progress * 100:.0f}%")
+        with col2:
+            if st.button("🔄 Refresh", key="auto_refresh"):
+                st.rerun()
 
     # Model Configuration
     col1, col2, col3 = st.columns([2, 2, 2])
@@ -228,12 +294,12 @@ def show():
                 all_secondary_options.append(f"{p}.{test}")
 
         selected_secondary = st.multiselect(
-            "",
+            "Select Probes",
             all_secondary_options,
             default=[x for x in form_data["probe_secondary"] if x in all_secondary_options],
             key="secondary_selection",
-            label_visibility="collapsed",
-            disabled=st.session_state.garak_scanning
+            disabled=st.session_state.garak_scanning,
+            label_visibility="visible"
         )
 
         if not st.session_state.garak_scanning:
@@ -291,66 +357,114 @@ def show():
 
     with col1:
         if not st.session_state.garak_scanning:
-            if st.button("🚀 Start Scan", type="primary", disabled=not can_start, use_container_width=True):
+            if st.button("Start Scan", type="primary", disabled=not can_start, use_container_width=True):
+                print(f"DEBUG: Start scan button clicked")
+                print(f"DEBUG: Form data: {form_data}")
+
                 st.session_state.garak_scanning = True
-                st.session_state.scan_progress = 0.0
-                st.session_state.scan_status = "Initializing..."
-                st.session_state.garak_logs = []
+                st.session_state.scan_progress = 0.1
+                st.session_state.scan_status = "Starting scan..."
+                st.session_state.garak_logs = ["Starting Garak scan...\n"]
+                st.session_state.last_log_update = datetime.datetime.now().strftime("%H:%M:%S")
 
                 # Build and start scan in background
                 final_cmd = build_garak_command(form_data)
+                print(f"DEBUG: Final command: {final_cmd}")
                 run_garak_background(final_cmd, form_data["model_name"])
 
                 st.rerun()
 
     with col2:
         if st.session_state.garak_scanning:
-            if st.button("❌ Cancel Scan", type="secondary", use_container_width=True):
+            if st.button("Cancel Scan", type="secondary", use_container_width=True):
                 st.session_state.garak_scanning = False
                 st.session_state.scan_progress = 0.0
                 st.session_state.scan_status = "Cancelled"
                 st.rerun()
+        else:
+            if st.button("Refresh Logs", type="secondary", use_container_width=True):
+                st.rerun()
+
+    # Debug section for testing
+    if st.session_state.get('garak_scanning', False):
+        st.markdown("---")
+        st.markdown("**Debug Info**")
+        st.write(f"Scan Progress: {st.session_state.scan_progress}")
+        st.write(f"Scan Status: {st.session_state.scan_status}")
+        log_lines = len(st.session_state.garak_logs[0].split('\n')) if st.session_state.garak_logs else 0
+        st.write(f"Log Lines: {log_lines}")
+        st.write(f"Last Update: {st.session_state.last_log_update}")
+
+        # Check for new logs from queue
+        latest_logs = get_latest_logs()
+        if latest_logs:
+            st.write("New logs detected!")
+            st.session_state.garak_logs = [latest_logs]
+            st.rerun()
 
     # Show scan progress and logs
     if st.session_state.garak_scanning or st.session_state.garak_logs:
         st.markdown("---")
 
-        # Show scan progress and logs
+        # Progress bar
+        if st.session_state.garak_scanning:
+            progress_bar = st.progress(st.session_state.scan_progress)
+            st.text(f"Status: {st.session_state.scan_status}")
+
+        # Show logs
         if st.session_state.garak_scanning or st.session_state.garak_logs:
-            st.markdown("---")
-
-            # Progress bar
-            if st.session_state.garak_scanning:
-                progress_bar = st.progress(st.session_state.scan_progress)
-                st.text(f"Status: {st.session_state.scan_status}")
-
-                # Check if scan completed by looking for report files
-                if st.session_state.scan_status == "Running scan...":
-                    # Look for garak report files to update progress
-                    report_pattern = f"*{datetime.datetime.now().strftime('%Y%m%d')}*.jsonl"
-                    report_files = glob.glob(os.path.expanduser(f"~/.local/share/garak/garak_runs/{report_pattern}"))
-
-                    if report_files:
-                        st.session_state.scan_progress = 0.8
-                        st.session_state.scan_status = "Generating reports..."
-
-                # Auto-refresh every 3 seconds
-                time.sleep(3)
-                st.rerun()
-
-            # Show logs
-            if st.session_state.garak_logs:
+            col1, col2 = st.columns([3, 1])
+            with col1:
                 st.markdown("**Scan Logs**")
-                log_content = "".join(st.session_state.garak_logs)
-                st.text_area("📋 Garak Logs", log_content, height=400, key="persistent_logs")
+            with col2:
+                if st.session_state.last_log_update:
+                    st.caption(f"Last update: {st.session_state.last_log_update}")
 
-            # Show completion status
-            if not st.session_state.garak_scanning and st.session_state.garak_logs:
-                if st.session_state.scan_status == "Completed":
-                    st.success("✅ Scan and upload completed successfully!")
-                elif st.session_state.scan_status == "Failed":
-                    st.error("❌ Scan failed. Check logs for details.")
-                elif st.session_state.scan_status == "Cancelled":
-                    st.warning("⚠️ Scan was cancelled.")
+            # Get latest logs from queue if scanning
+            if st.session_state.garak_scanning:
+                latest_logs = get_latest_logs()
+                if latest_logs:
+                    st.session_state.garak_logs = [latest_logs]
+                    st.session_state.last_log_update = datetime.datetime.now().strftime("%H:%M:%S")
+
+                    # Update progress based on log content
+                    log_content = latest_logs.lower()
+                    if "preparing prompts:" in log_content:
+                        st.session_state.scan_progress = 0.2
+                        st.session_state.scan_status = "Preparing prompts..."
+                    elif "probes." in log_content and "%" in log_content:
+                        st.session_state.scan_progress = 0.5
+                        st.session_state.scan_status = "Running probes..."
+                    elif "detectors." in log_content and "%" in log_content:
+                        st.session_state.scan_progress = 0.8
+                        st.session_state.scan_status = "Running detectors..."
+                    elif "report closed" in log_content:
+                        st.session_state.scan_progress = 0.9
+                        st.session_state.scan_status = "Generating report..."
+                    elif "garak run complete" in log_content:
+                        st.session_state.scan_progress = 1.0
+                        st.session_state.scan_status = "Completed"
+
+            log_content = st.session_state.garak_logs[0] if st.session_state.garak_logs else ""
+
+            # Split logs into lines and show the last 50 lines for better performance
+            log_lines = log_content.split('\n')
+            if len(log_lines) > 50:
+                display_logs = '\n'.join(log_lines[-50:])
+                st.info(f"Showing last 50 lines of {len(log_lines)} total lines")
+            else:
+                display_logs = log_content
+
+            st.text_area("Garak Logs", display_logs, height=400, key="persistent_logs")
+
+        # Show completion status
+        if not st.session_state.garak_scanning and st.session_state.garak_logs:
+            if st.session_state.scan_status == "Completed":
+                st.success("✅ Scan completed successfully!")
+            elif st.session_state.scan_status == "Failed":
+                st.error("Scan failed. Check logs for details.")
+            elif st.session_state.scan_status == "Cancelled":
+                st.warning("Scan was cancelled.")
+
     # Update session state
     st.session_state.garak_form_data = form_data
