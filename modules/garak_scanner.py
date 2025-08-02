@@ -349,7 +349,7 @@ def show():
     with col1:
         if not st.session_state.garak_scanning:
             # Show "Refresh" if there are existing logs, otherwise "Start Scan"
-            button_text = "🔄 Refresh" if st.session_state.garak_logs else "🚀 Start Scan"
+            button_text = "🔄 Refresh" if st.session_state.garak_logs else "Start Scan"
             if st.button(button_text, type="primary", disabled=not can_start, use_container_width=True):
                 print(f"DEBUG: Start scan button clicked")
                 print(f"DEBUG: Form data: {form_data}")
@@ -369,7 +369,7 @@ def show():
 
     with col2:
         if st.session_state.garak_scanning:
-            if st.button("❌ Cancel Scan", type="secondary", use_container_width=True):
+            if st.button("Cancel Scan", type="secondary", use_container_width=True):
                 st.session_state.garak_scanning = False
                 st.session_state.scan_progress = 0.0
                 st.session_state.scan_status = "Cancelled"
