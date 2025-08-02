@@ -60,7 +60,7 @@ class ReportGenerate:
         )
         full_prompt = (
                     base_prompt + f"{garak_report_data}" + ". Please don't forget to add top add the Harmful prompts: "
-                    + f" {harmful_prompt}\n" + f"In Addition we have our default format {json.dumps(default_format, indent=2)} )")
+                    + f" {harmful_prompt}\n" + f"In Addition we have our json format {json.dumps(default_format, indent=2)} )")
         return self.openai_client.ask_for_report(prompt=full_prompt)
 
     def prepare_request_data(self, filter_key: str, df: DataFrame) -> DataFrame:

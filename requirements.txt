@@ -8,3 +8,4 @@ matplotlib
 python-dotenv
 streamlit-authenticator
 boto3
+fpdf
