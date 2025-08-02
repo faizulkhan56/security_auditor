@@ -1,17 +1,28 @@
-import streamlit as st
 import json
-from streamlit_lottie import st_lottie
-from modules import home, scan_llm, dashboard, logs, prompts, settings
-from auth import authenticator
 import warnings
+
+import streamlit as st
+from streamlit_lottie import st_lottie
+
+from auth import authenticator
+from modules import home, scan_llm, dashboard, logs, prompts, settings
 warnings.filterwarnings("ignore")
-import yaml
 
 st.set_page_config(
     page_title="LLM Security Auditor",
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# Initialize session state for authentication
+if 'authentication_status' not in st.session_state:
+    st.session_state.authentication_status = None
+if 'logout' not in st.session_state:
+    st.session_state.logout = False
+if 'name' not in st.session_state:
+    st.session_state.name = None
+if 'username' not in st.session_state:
+    st.session_state.username = None
 
 # # Render login widget
 try:
@@ -42,7 +53,7 @@ if st.session_state.get('authentication_status'):
 
     # Navigation
     page = st.sidebar.radio(
-        label="",
+        label="Navigation",
         options=["Home", "Scan", "Dashboard", "Logs", "Prompts", "Settings"],
         index=0,
         format_func=lambda x: f"{x}" if x == "Home" else x
