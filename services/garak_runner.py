@@ -73,7 +73,7 @@ def run_garak_live(cmd, on_update=None):
         try:
             log_filter = LogFilter(aws_client, cmd)
             log_path = f"{os.getenv('LOG_PATH', '~')}.local/share/garak/garak_runs/"
-
+            print(f"DEBUG: Log path: {log_path}")
             # Extract report prefix from command
             cmd_parts = cmd.split()
             report_prefix = None
@@ -106,6 +106,8 @@ def run_garak_live(cmd, on_update=None):
     except Exception as e:
         print(f"DEBUG: Error starting garak process: {e}")
         return f"Error starting garak: {str(e)}", -1, None
+
+
 
 
 def save_report(response_data, cmd):
