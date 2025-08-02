@@ -222,15 +222,6 @@ def show():
 
     form_data = st.session_state.garak_form_data
 
-    # Show persistent scan status at top if running
-    if st.session_state.garak_scanning:
-        col1, col2 = st.columns([3, 1])
-        with col1:
-            st.info(f"🔄 Scan in progress: {st.session_state.scan_status} - {st.session_state.scan_progress * 100:.0f}%")
-        with col2:
-            if st.button("🔄 Refresh", key="auto_refresh"):
-                st.rerun()
-
     # Model Configuration
     col1, col2, col3 = st.columns([2, 2, 2])
 
@@ -357,7 +348,9 @@ def show():
 
     with col1:
         if not st.session_state.garak_scanning:
-            if st.button("Start Scan", type="primary", disabled=not can_start, use_container_width=True):
+            # Show "Refresh" if there are existing logs, otherwise "Start Scan"
+            button_text = "🔄 Refresh" if st.session_state.garak_logs else "🚀 Start Scan"
+            if st.button(button_text, type="primary", disabled=not can_start, use_container_width=True):
                 print(f"DEBUG: Start scan button clicked")
                 print(f"DEBUG: Form data: {form_data}")
 
@@ -376,94 +369,73 @@ def show():
 
     with col2:
         if st.session_state.garak_scanning:
-            if st.button("Cancel Scan", type="secondary", use_container_width=True):
+            if st.button("❌ Cancel Scan", type="secondary", use_container_width=True):
                 st.session_state.garak_scanning = False
                 st.session_state.scan_progress = 0.0
                 st.session_state.scan_status = "Cancelled"
                 st.rerun()
-        else:
-            if st.button("Refresh Logs", type="secondary", use_container_width=True):
-                st.rerun()
 
-    # Debug section for testing
+    # Check for new logs from queue when scanning
     if st.session_state.get('garak_scanning', False):
-        st.markdown("---")
-        st.markdown("**Debug Info**")
-        st.write(f"Scan Progress: {st.session_state.scan_progress}")
-        st.write(f"Scan Status: {st.session_state.scan_status}")
-        log_lines = len(st.session_state.garak_logs[0].split('\n')) if st.session_state.garak_logs else 0
-        st.write(f"Log Lines: {log_lines}")
-        st.write(f"Last Update: {st.session_state.last_log_update}")
-
-        # Check for new logs from queue
         latest_logs = get_latest_logs()
         if latest_logs:
-            st.write("New logs detected!")
             st.session_state.garak_logs = [latest_logs]
-            st.rerun()
+            st.session_state.last_log_update = datetime.datetime.now().strftime("%H:%M:%S")
 
-    # Show scan progress and logs
+    # Show logs
     if st.session_state.garak_scanning or st.session_state.garak_logs:
-        st.markdown("---")
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            if st.session_state.last_log_update:
+                st.caption(f"Last update: {st.session_state.last_log_update}")
+        with col2:
+            if st.button("🔄", help="Refresh logs", key="refresh_logs_icon", use_container_width=True):
+                st.rerun()
 
-        # Progress bar
-        if st.session_state.garak_scanning:
-            progress_bar = st.progress(st.session_state.scan_progress)
-            st.text(f"Status: {st.session_state.scan_status}")
+        log_content = st.session_state.garak_logs[0] if st.session_state.garak_logs else ""
 
-        # Show logs
-        if st.session_state.garak_scanning or st.session_state.garak_logs:
-            col1, col2 = st.columns([3, 1])
-            with col1:
-                st.markdown("**Scan Logs**")
-            with col2:
-                if st.session_state.last_log_update:
-                    st.caption(f"Last update: {st.session_state.last_log_update}")
+        # Clean the log content - remove ANSI codes and artifacts
+        def clean_log_content(content):
+            import re
 
-            # Get latest logs from queue if scanning
-            if st.session_state.garak_scanning:
-                latest_logs = get_latest_logs()
-                if latest_logs:
-                    st.session_state.garak_logs = [latest_logs]
-                    st.session_state.last_log_update = datetime.datetime.now().strftime("%H:%M:%S")
+            # Remove ANSI escape codes (color codes, formatting, etc.)
+            ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+            content = ansi_escape.sub('', content)
 
-                    # Update progress based on log content
-                    log_content = latest_logs.lower()
-                    if "preparing prompts:" in log_content:
-                        st.session_state.scan_progress = 0.2
-                        st.session_state.scan_status = "Preparing prompts..."
-                    elif "probes." in log_content and "%" in log_content:
-                        st.session_state.scan_progress = 0.5
-                        st.session_state.scan_status = "Running probes..."
-                    elif "detectors." in log_content and "%" in log_content:
-                        st.session_state.scan_progress = 0.8
-                        st.session_state.scan_status = "Running detectors..."
-                    elif "report closed" in log_content:
-                        st.session_state.scan_progress = 0.9
-                        st.session_state.scan_status = "Generating report..."
-                    elif "garak run complete" in log_content:
-                        st.session_state.scan_progress = 1.0
-                        st.session_state.scan_status = "Completed"
+            # Remove other common escape sequences
+            content = re.sub(r'\[[0-9;]*[a-zA-Z]', '', content)
+            content = re.sub(r'\[[0-9;]*m', '', content)
 
-            log_content = st.session_state.garak_logs[0] if st.session_state.garak_logs else ""
+            lines = content.split('\n')
+            cleaned_lines = []
+            for line in lines:
+                # Remove lines that are just "|" or blank spaces
+                cleaned_line = line.strip()
+                if cleaned_line and cleaned_line != "|" and not cleaned_line.isspace():
+                    # Remove lines containing file paths and directory information
+                    if not any(path_indicator in cleaned_line.lower() for path_indicator in [
+                        'logging to ', 'reporting to ', 'report closed', 'report html summary',
+                        'c:\\', 'c:/', '/users/', '\\users\\', '.jsonl', '.html', '.log'
+                    ]):
+                        cleaned_lines.append(cleaned_line)
+            return '\n'.join(cleaned_lines)
 
-            # Split logs into lines and show the last 50 lines for better performance
-            log_lines = log_content.split('\n')
-            if len(log_lines) > 50:
-                display_logs = '\n'.join(log_lines[-50:])
-                st.info(f"Showing last 50 lines of {len(log_lines)} total lines")
-            else:
-                display_logs = log_content
+        # Clean and split logs into lines
+        cleaned_content = clean_log_content(log_content)
+        log_lines = cleaned_content.split('\n')
+        if len(log_lines) > 50:
+            display_logs = '\n'.join(log_lines[-50:])
+            st.info(f"Showing last 50 lines of {len(log_lines)} total lines")
+        else:
+            display_logs = cleaned_content
 
-            st.text_area("Garak Logs", display_logs, height=400, key="persistent_logs")
+        st.text_area("📋 Garak Logs", display_logs, height=400, key="persistent_logs")
 
-        # Show completion status
+        # Show simple completion status
         if not st.session_state.garak_scanning and st.session_state.garak_logs:
-            if st.session_state.scan_status == "Completed":
-                st.success("✅ Scan completed successfully!")
-            elif st.session_state.scan_status == "Failed":
-                st.error("Scan failed. Check logs for details.")
-            elif st.session_state.scan_status == "Cancelled":
+            if "garak run complete" in st.session_state.garak_logs[0].lower():
+                st.success("Scan completed!")
+            elif "cancelled" in st.session_state.scan_status.lower():
                 st.warning("Scan was cancelled.")
 
     # Update session state
