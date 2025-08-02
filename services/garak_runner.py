@@ -112,9 +112,8 @@ def run_garak_live(cmd, on_update=None):
         data = log_filter.read_log_data(data_path)
         filtered_df = log_filter.filtered_output_data(data)
         response_data = report_generator.generate_report_from_openai(df=filtered_df)
+        print(response_data)
         return response_data
-
-        return log_output, return_code, None
 
     except Exception as e:
         print(f"DEBUG: Error starting garak process: {e}")
